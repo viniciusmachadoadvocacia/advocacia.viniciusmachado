@@ -40,7 +40,7 @@ jobs:
               with open('concat.txt','w') as f:
                   for p in files: f.write("file '"+p+"'\n")
               subprocess.run(['ffmpeg','-hide_banner','-loglevel','error','-y','-f','concat','-safe','0','-i','concat.txt','-af','loudnorm=I=-16:TP=-1.5:LRA=10','-ac','2','-ar','44100','-b:a','160k',out],check=True)
-              print('CREATED',out,subprocess.check_output(['ffprobe','-v','error','-show_entries','format=duration','-of','default=nw=1:nk=1',out]).decode())
+              print('CREATED',out)
           def try_edge():
               import edge_tts
               async def run():
