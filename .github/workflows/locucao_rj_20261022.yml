@@ -14,7 +14,10 @@ jobs:
         with:
           python-version: "3.11"
       - name: Instalar programas
-        run: pip install --quiet edge-tts gTTS
+        run: |
+          pip install --quiet edge-tts gTTS imageio-ffmpeg
+          python -c "import imageio_ffmpeg,os; os.symlink(imageio_ffmpeg.get_ffmpeg_exe(),'/tmp/ffmpeg')"
+          echo /tmp >> $GITHUB_PATH
       - name: Gerar a voz
         run: |
           cat > fala_rj.py <<'PY'
