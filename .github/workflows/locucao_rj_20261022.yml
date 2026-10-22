@@ -1,0 +1,82 @@
+name: Gerar voz neural RJ (gratuito)
+on:
+  push:
+    branches: [locucao-rj-20261022]
+    paths: [.github/workflows/locucao_rj_20261022.yml]
+permissions:
+  contents: write
+jobs:
+  gerar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Instalar programas
+        run: pip install --quiet edge-tts gTTS
+      - name: Gerar a voz
+        run: |
+          cat > fala_rj.py <<'PY'
+          import asyncio, subprocess, pathlib, time
+          P=pathlib.Path(".")
+          segments=[
+          "Quando é a hora certa de pedir recuperação judicial?",
+          "Quando as dívidas começam a engolir o caixa, esperar a última penhora pode ser perigoso.",
+          "Mas atenção: recuperação judicial não é para toda empresa endividada. É para a atividade que ainda é viável e precisa reorganizar o passivo.",
+          "E existe uma regra que muita gente confunde.",
+          "O simples pedido não suspende automaticamente todas as execuções.",
+          "Em regra, depois que o juiz defere o processamento, as execuções dos créditos sujeitos à recuperação ficam suspensas por cento e oitenta dias corridos.",
+          "Esse é o chamado stay period.",
+          "A lei admite, excepcionalmente, uma única prorrogação por igual prazo, se a empresa não provocou a demora.",
+          "Execuções fiscais e créditos que não se submetem à recuperação seguem regras próprias.",
+          "Os cento e oitenta dias não apagam a dívida. Eles dão fôlego para negociar com credores, reorganizar o caixa e construir um plano.",
+          "O momento certo de agir é antes que a empresa perca a capacidade de continuar funcionando."
+          ]
+          def concat_audio(files,out):
+              with open('concat.txt','w') as f:
+                  for p in files: f.write("file '"+p+"'\n")
+              subprocess.run(['ffmpeg','-hide_banner','-loglevel','error','-y','-f','concat','-safe','0','-i','concat.txt','-af','loudnorm=I=-16:TP=-1.5:LRA=10','-ac','2','-ar','44100','-b:a','160k',out],check=True)
+              print('CREATED',out,subprocess.check_output(['ffprobe','-v','error','-show_entries','format=duration','-of','default=nw=1:nk=1',out]).decode())
+          def try_edge():
+              import edge_tts
+              async def run():
+                  files=[]
+                  for i,s in enumerate(segments):
+                      fn=f'n_{i:02}.mp3'
+                      await edge_tts.Communicate(s,voice='pt-BR-AntonioNeural',rate='+4%',pitch='-4Hz').save(fn)
+                      if pathlib.Path(fn).stat().st_size < 500: raise RuntimeError('empty voice clip')
+                      files.append(fn)
+                  concat_audio(files,'Narracao_RJ_180_Dias.mp3')
+              asyncio.run(run())
+          def try_gtts():
+              from gtts import gTTS
+              files=[]
+              for i,s in enumerate(segments):
+                  fn=f'g_{i:02}.mp3'
+                  gTTS(s,lang='pt',tld='com.br',slow=False).save(fn)
+                  files.append(fn)
+              concat_audio(files,'Narracao_RJ_180_Dias.mp3')
+          try:
+              try_edge()
+          except Exception as e:
+              print('EDGE FAILED',repr(e))
+              try:
+                  try_gtts()
+              except Exception as e:
+                  print('GTTS FAILED',repr(e))
+                  raise
+          
+          PY
+          python fala_rj.py
+      - name: Salvar o áudio no ramo separado
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Narracao_RJ_180_Dias.mp3
+          git commit -m "Gerar narracao neural sobre recuperacao judicial"
+          git push
+      - uses: actions/upload-artifact@v4
+        with:
+          name: narracao-rj-natural
+          path: Narracao_RJ_180_Dias.mp3
